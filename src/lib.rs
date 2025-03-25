@@ -1,4 +1,5 @@
 // Great thanks to https://github.com/sotrh/learn-wgpu
+// This code is modified
 
 use std::iter;
 
@@ -40,16 +41,6 @@ impl Vertex {
     }
 }
 
-// const VERTICES: &[Vertex] = &[
-//     Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
-//     Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
-//     Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
-// ];
-
-// const INDICES: &[u16] = &[
-//     0, 1, 2,
-// ];
-
 struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
@@ -84,8 +75,7 @@ impl<'a> State<'a> {
         // State owns the window so this should be safe.
         let surface = instance.create_surface(window).unwrap();
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
@@ -93,8 +83,7 @@ impl<'a> State<'a> {
             .await
             .unwrap();
 
-        let (device, queue) = adapter
-            .request_device(
+        let (device, queue) = adapter.request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::empty(),
