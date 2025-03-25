@@ -21,7 +21,7 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
+    fn create_buffer() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -140,7 +140,7 @@ impl<'a> State<'a> {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::create_buffer()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
