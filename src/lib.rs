@@ -1,4 +1,4 @@
-use std::iter;
+use std::iter; // An iterator of some sorts
 
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
@@ -155,11 +155,11 @@ impl CameraController {
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    KeyCode::Space => {
+                    KeyCode::KeyF => {
                         self.is_up_pressed = is_pressed;
                         true
                     }
-                    KeyCode::ShiftLeft => {
+                    KeyCode::KeyR => {
                         self.is_down_pressed = is_pressed;
                         true
                     }
@@ -187,13 +187,16 @@ impl CameraController {
     }
 
     fn update_camera(&self, camera: &mut Camera) {
+        // creates a vector pointing from the camera toward what it's looking at
         let forward = camera.target - camera.eye;
+
+        // You never need to normalize a vector unless you are working with the angles between vectors, or unless you are rotating a vector.
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
 
         // Prevents glitching when camera gets too close to the
         // center of the scene.
-        if self.is_forward_pressed && forward_mag > self.speed {
+        if self.is_forward_pressed && forward_mag > 1.0 {
             camera.eye += forward_norm * self.speed;
         }
         if self.is_backward_pressed {
@@ -214,6 +217,13 @@ impl CameraController {
         }
         if self.is_left_pressed {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+        }
+
+        if self.is_up_pressed {
+            camera.eye = camera.target - (forward - camera.up * self.speed).normalize() * forward_mag;
+        }
+        if self.is_down_pressed{
+            camera.eye = camera.target - (forward + camera.up * self.speed).normalize() * forward_mag;
         }
     }
 }
