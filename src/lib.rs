@@ -45,28 +45,74 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.00759614],
-    }, // A
+        position: [-0.32, -0.32, -0.32],  // 0: Back bottom left
+        tex_coords: [0.0, 0.0],
+    },
     Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-    }, // B
+        position: [0.32, -0.32, -0.32],   // 1: Back bottom right
+        tex_coords: [1.0, 0.0],
+    },
     Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-    }, // C
+        position: [0.32, 0.32, -0.32],    // 2: Back top right
+        tex_coords: [1.0, 1.0],
+    },
     Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-    }, // D
+        position: [-0.32, 0.32, -0.32],   // 3: Back top left
+        tex_coords: [0.0, 1.0],
+    },
     Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.2652641],
-    }, // E
+        position: [-0.32, -0.32, 0.32],   // 4: Front bottom left
+        tex_coords: [0.0, 0.0],
+    },
+    Vertex {
+        position: [0.32, -0.32, 0.32],    // 5: Front bottom right
+        tex_coords: [1.0, 0.0],
+    },
+    Vertex {
+        position: [0.32, 0.32, 0.32],     // 6: Front top right
+        tex_coords: [1.0, 1.0],
+    },
+    Vertex {
+        position: [-0.32, 0.32, 0.32],    // 7: Front top left
+        tex_coords: [0.0, 1.0],
+    },
 ];
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
+const INDICES: &[u16] = &[
+    // Don't forget it's Ccw
+    // 0: Back bottom left
+    // 1: Back bottom right
+    // 2: Back top right
+    // 3: Back top left
+    // 4: Front bottom left
+    // 5: Front bottom right
+    // 6: Front top right
+    // 7: Front top left
+
+    // Front face
+    7, 4 ,6,    // First triangle
+    6, 4, 5,    // Second triangle
+
+    // Back face
+    0, 3, 1,    // First triangle
+    3, 2, 1,    // Second triangle
+
+    // Left face
+    0, 7, 3,    // First triangle
+    0, 4, 7,    // Second triangle
+
+    // Right face
+    6, 5, 2,    // First triangle
+    1, 2, 5,    // Second triangle
+
+    // Top face
+    3, 7, 2,    // First triangle
+    7, 6, 2,    // Second triangle
+
+    // Bottom face
+    0, 5, 4,    // First triangle
+    0, 1, 5,    // Second triangle
+];
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -78,7 +124,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    NUM_INSTANCES_PER_ROW as f32 * 0.2,
     0.0,
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
