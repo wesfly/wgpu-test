@@ -1,4 +1,4 @@
-use std::iter; // An iterator of some sorts
+use std::iter;
 
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
@@ -6,113 +6,17 @@ use winit::{
     event::*,
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowBuilder},
+    window::Window,
 };
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+mod model;
+mod resources;
 mod texture;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.32, -0.32, -0.32],  // 0: Back bottom left
-        tex_coords: [0.0, 0.0],
-    },
-    Vertex {
-        position: [0.32, -0.32, -0.32],   // 1: Back bottom right
-        tex_coords: [1.0, 0.0],
-    },
-    Vertex {
-        position: [0.32, 0.32, -0.32],    // 2: Back top right
-        tex_coords: [1.0, 1.0],
-    },
-    Vertex {
-        position: [-0.32, 0.32, -0.32],   // 3: Back top left
-        tex_coords: [0.0, 1.0],
-    },
-    Vertex {
-        position: [-0.32, -0.32, 0.32],   // 4: Front bottom left
-        tex_coords: [0.0, 0.0],
-    },
-    Vertex {
-        position: [0.32, -0.32, 0.32],    // 5: Front bottom right
-        tex_coords: [1.0, 0.0],
-    },
-    Vertex {
-        position: [0.32, 0.32, 0.32],     // 6: Front top right
-        tex_coords: [1.0, 1.0],
-    },
-    Vertex {
-        position: [-0.32, 0.32, 0.32],    // 7: Front top left
-        tex_coords: [0.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[
-    // Don't forget it's Ccw
-    // 0: Back bottom left
-    // 1: Back bottom right
-    // 2: Back top right
-    // 3: Back top left
-    // 4: Front bottom left
-    // 5: Front bottom right
-    // 6: Front top right
-    // 7: Front top left
-
-    // Front face
-    7, 4 ,6,    // First triangle
-    6, 4, 5,    // Second triangle
-
-    // Back face
-    0, 3, 1,    // First triangle
-    3, 2, 1,    // Second triangle
-
-    // Left face
-    0, 7, 3,    // First triangle
-    0, 4, 7,    // Second triangle
-
-    // Right face
-    6, 5, 2,    // First triangle
-    1, 2, 5,    // Second triangle
-
-    // Top face
-    3, 7, 2,    // First triangle
-    7, 6, 2,    // Second triangle
-
-    // Bottom face
-    0, 5, 4,    // First triangle
-    0, 1, 5,    // Second triangle
-];
+use model::{DrawModel, Vertex};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -122,13 +26,9 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
-const NUM_INSTANCES_PER_ROW: u32 = 2048;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.2,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
+const NUM_INSTANCES_PER_ROW: u32 = 256;
 
+#[derive(Debug)]
 struct Camera {
     eye: cgmath::Point3<f32>,
     target: cgmath::Point3<f32>,
@@ -148,7 +48,7 @@ impl Camera {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
     view_proj: [[f32; 4]; 4],
 }
@@ -265,11 +165,14 @@ impl CameraController {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
         }
 
+        // TODO Camera slows down when it gets close to the highest or lowest point
         if self.is_up_pressed {
-            camera.eye = camera.target - (forward - camera.up * self.speed).normalize() * forward_mag;
+            camera.eye =
+                camera.target - (forward - camera.up * self.speed).normalize() * forward_mag;
         }
-        if self.is_down_pressed{
-            camera.eye = camera.target - (forward + camera.up * self.speed).normalize() * forward_mag;
+        if self.is_down_pressed {
+            camera.eye =
+                camera.target - (forward + camera.up * self.speed).normalize() * forward_mag;
         }
     }
 }
@@ -342,12 +245,7 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
-    #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
-    diffuse_bind_group: wgpu::BindGroup,
+    obj_model: model::Model,
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
@@ -356,7 +254,6 @@ struct State<'a> {
     instances: Vec<Instance>,
     #[allow(dead_code)]
     instance_buffer: wgpu::Buffer,
-    // NEW!
     depth_texture: texture::Texture,
     window: &'a Window,
 }
@@ -367,6 +264,7 @@ impl<'a> State<'a> {
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
+        log::warn!("WGPU setup");
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
@@ -385,6 +283,7 @@ impl<'a> State<'a> {
             })
             .await
             .unwrap();
+        log::warn!("device and queue");
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -399,11 +298,13 @@ impl<'a> State<'a> {
                     },
                     memory_hints: Default::default(),
                 },
+                // Some(&std::path::Path::new("trace")), // Trace path
                 None, // Trace path
             )
             .await
             .unwrap();
 
+        log::warn!("Surface");
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code in this tutorial assumes an Srgb surface texture. Using a different
         // one will result all the colors comming out darker. If you want to support non
@@ -424,10 +325,6 @@ impl<'a> State<'a> {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-
-        let diffuse_bytes = include_bytes!("happy-tree.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -452,23 +349,8 @@ impl<'a> State<'a> {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
         let camera = Camera {
-            eye: (0.0, 5.0, 10.0).into(),
+            eye: (0.0, 5.0, -10.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
@@ -476,7 +358,7 @@ impl<'a> State<'a> {
             znear: 0.1,
             zfar: 100.0,
         };
-        let camera_controller = CameraController::new(1.2);
+        let camera_controller = CameraController::new(0.2);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
@@ -487,18 +369,16 @@ impl<'a> State<'a> {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not created correctly
                         cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
@@ -543,8 +423,14 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
+        log::warn!("Load model");
+        let obj_model =
+            resources::load_model("tree.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
+            label: Some("shader.wgsl"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
@@ -564,7 +450,7 @@ impl<'a> State<'a> {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
+                buffers: &[model::ModelVertex::desc(), InstanceRaw::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -612,18 +498,6 @@ impl<'a> State<'a> {
             cache: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-        let num_indices = INDICES.len() as u32;
-
         Self {
             surface,
             device,
@@ -631,11 +505,7 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
-            diffuse_texture,
-            diffuse_bind_group,
+            obj_model,
             camera,
             camera_controller,
             camera_buffer,
@@ -654,12 +524,11 @@ impl<'a> State<'a> {
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
+            self.size = new_size;
             self.camera.aspect = self.config.width as f32 / self.config.height as f32;
-            // NEW!
+            self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
@@ -721,11 +590,11 @@ impl<'a> State<'a> {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as u32);
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.camera_bind_group,
+            );
         }
 
         self.queue.submit(iter::once(encoder.finish()));
@@ -747,7 +616,11 @@ pub async fn run() {
     }
 
     let event_loop = EventLoop::new().unwrap();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let title = env!("CARGO_PKG_NAME");
+    let window = winit::window::WindowBuilder::new()
+        .with_title(title)
+        .build(&event_loop)
+        .unwrap();
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -811,7 +684,9 @@ pub async fn run() {
                                         wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
                                     ) => state.resize(state.size),
                                     // The system is out of memory, we should probably quit
-                                    Err(wgpu::SurfaceError::OutOfMemory | wgpu::SurfaceError::Other) => {
+                                    Err(
+                                        wgpu::SurfaceError::OutOfMemory | wgpu::SurfaceError::Other,
+                                    ) => {
                                         log::error!("OutOfMemory");
                                         control_flow.exit();
                                     }
