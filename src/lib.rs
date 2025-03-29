@@ -122,7 +122,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
-const NUM_INSTANCES_PER_ROW: u32 = 10;
+const NUM_INSTANCES_PER_ROW: u32 = 2048;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.2,
     0.0,
@@ -476,7 +476,7 @@ impl<'a> State<'a> {
             znear: 0.1,
             zfar: 100.0,
         };
-        let camera_controller = CameraController::new(0.002);
+        let camera_controller = CameraController::new(1.2);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
