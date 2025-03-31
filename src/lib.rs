@@ -449,8 +449,8 @@ impl<'a> State<'a> {
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
+            znear: 0.2, // Min and max distances
+            zfar: 1000.0,
         };
 
         let camera_controller = CameraController::new(0.2);
