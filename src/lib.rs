@@ -62,9 +62,8 @@ impl CameraUniform {
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        // We're using Vector4 because ofthe camera_uniform 16 byte spacing requirement
         self.view_position = camera.eye.to_homogeneous().into();
-        self.view_proj = camera.build_view_projection_matrix().into();
+        self.view_proj = (OPENGL_TO_WGPU_MATRIX * camera.build_view_projection_matrix()).into();
     }
 }
 
@@ -187,10 +186,10 @@ struct Instance {
 
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
-        let model =
-            cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation);
         InstanceRaw {
-            model: model.into(),
+            model: (cgmath::Matrix4::from_translation(self.position)
+                * cgmath::Matrix4::from(self.rotation))
+            .into(),
             normal: cgmath::Matrix3::from(self.rotation).into(),
         }
     }
@@ -265,7 +264,6 @@ struct LightUniform {
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding: u32,
     color: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding2: u32,
 }
 
@@ -291,6 +289,8 @@ struct State<'a> {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
+    #[allow(dead_code)]
+    debug_material: model::Material,
 }
 
 fn create_render_pipeline(
@@ -394,7 +394,7 @@ impl<'a> State<'a> {
                     },
                     memory_hints: Default::default(),
                 },
-                None,
+                None, // Trace path
             )
             .await
             .unwrap();
@@ -428,13 +428,30 @@ impl<'a> State<'a> {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // normal map
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -574,6 +591,7 @@ impl<'a> State<'a> {
                 push_constant_ranges: &[],
             });
 
+        log::info!("Render Pipeline");
         let render_pipeline = {
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Normal Shader"),
@@ -589,6 +607,7 @@ impl<'a> State<'a> {
             )
         };
 
+        log::info!("Light Render Pipeline");
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
@@ -609,7 +628,38 @@ impl<'a> State<'a> {
             )
         };
 
+        let debug_material = {
+            let diffuse_bytes = include_bytes!("../res/tree-diffuse.png");
+            let normal_bytes = include_bytes!("../res/tree-normal.png");
+
+            let diffuse_texture = texture::Texture::from_bytes(
+                &device,
+                &queue,
+                diffuse_bytes,
+                "res/alt-diffuse.png",
+                false,
+            )
+            .unwrap();
+            let normal_texture = texture::Texture::from_bytes(
+                &device,
+                &queue,
+                normal_bytes,
+                "res/alt-normal.png",
+                true,
+            )
+            .unwrap();
+
+            model::Material::new(
+                &device,
+                "alt-material",
+                diffuse_texture,
+                normal_texture,
+                &texture_bind_group_layout,
+            )
+        };
+
         Self {
+            window,
             surface,
             device,
             queue,
@@ -629,7 +679,8 @@ impl<'a> State<'a> {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
-            window,
+            #[allow(dead_code)]
+            debug_material,
         }
     }
 
@@ -722,6 +773,7 @@ impl<'a> State<'a> {
                 &self.camera_bind_group,
                 &self.light_bind_group,
             );
+
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.draw_model_instanced(
                 &self.obj_model,
@@ -730,7 +782,6 @@ impl<'a> State<'a> {
                 &self.light_bind_group,
             );
         }
-
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
 
@@ -743,7 +794,7 @@ pub async fn run() {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Warn).expect("Could't initialize logger");
+            console_log::init_with_level(log::Level::Info).expect("Could't initialize logger");
         } else {
             env_logger::init();
         }
@@ -767,12 +818,9 @@ pub async fn run() {
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
+                let dst = doc.get_element_by_id("wasm-example")?;
                 let canvas = web_sys::Element::from(window.canvas()?);
-                if let Some(dst) = doc.get_element_by_id("wasm-example") {
-                    dst.append_child(&canvas).ok()?;
-                } else {
-                    doc.body()?.append_child(&canvas).ok()?;
-                }
+                dst.append_child(&canvas).ok()?;
                 Some(())
             })
             .expect("Couldn't append canvas to document body.");
