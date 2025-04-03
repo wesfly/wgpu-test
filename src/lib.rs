@@ -13,9 +13,13 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 mod camera;
+mod hdr;
 mod model;
 mod resources;
 mod texture;
+
+#[cfg(feature = "debug")]
+mod debug;
 
 use model::{DrawLight, DrawModel, Vertex};
 
@@ -25,21 +29,33 @@ const NUM_INSTANCES_PER_ROW: u32 = 512;
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
     view_position: [f32; 4],
+    view: [[f32; 4]; 4],
     view_proj: [[f32; 4]; 4],
+    inv_proj: [[f32; 4]; 4],
+    inv_view: [[f32; 4]; 4],
 }
 
 impl CameraUniform {
     fn new() -> Self {
         Self {
             view_position: [0.0; 4],
+            view: cgmath::Matrix4::identity().into(),
             view_proj: cgmath::Matrix4::identity().into(),
+            inv_proj: cgmath::Matrix4::identity().into(),
+            inv_view: cgmath::Matrix4::identity().into(),
         }
     }
 
     // UPDATED!
     fn update_view_proj(&mut self, camera: &camera::Camera, projection: &camera::Projection) {
         self.view_position = camera.position.to_homogeneous().into();
-        self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
+        let proj = projection.calc_matrix();
+        let view = camera.calc_matrix();
+        let view_proj = proj * view;
+        self.view = view.into();
+        self.view_proj = view_proj.into();
+        self.inv_proj = proj.invert().unwrap().into();
+        self.inv_view = view.transpose().into();
     }
 }
 
@@ -156,8 +172,13 @@ struct State<'a> {
     light_render_pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     debug_material: model::Material,
-    // NEW!
     mouse_pressed: bool,
+    
+    hdr: hdr::HdrPipeline,
+    environment_bind_group: wgpu::BindGroup,
+    sky_pipeline: wgpu::RenderPipeline,
+    #[cfg(feature = "debug")]
+    debug: debug::Debug,
 }
 
 fn create_render_pipeline(
@@ -166,6 +187,7 @@ fn create_render_pipeline(
     color_format: wgpu::TextureFormat,
     depth_format: Option<wgpu::TextureFormat>,
     vertex_layouts: &[wgpu::VertexBufferLayout],
+    topology: wgpu::PrimitiveTopology, // NEW!
     shader: wgpu::ShaderModuleDescriptor,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(shader);
@@ -184,16 +206,13 @@ fn create_render_pipeline(
             entry_point: Some("fs_main"),
             targets: &[Some(wgpu::ColorTargetState {
                 format: color_format,
-                blend: Some(wgpu::BlendState {
-                    alpha: wgpu::BlendComponent::REPLACE,
-                    color: wgpu::BlendComponent::REPLACE,
-                }),
+                blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
             })],
             compilation_options: Default::default(),
         }),
         primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
+            topology, // NEW!
             strip_index_format: None,
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: Some(wgpu::Face::Back),
@@ -207,7 +226,7 @@ fn create_render_pipeline(
         depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
             format,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::LessEqual, // UDPATED!
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
@@ -224,16 +243,17 @@ fn create_render_pipeline(
 }
 
 impl<'a> State<'a> {
-    async fn new(window: &'a Window) -> State<'a> {
+    async fn new(window: &'a Window) -> anyhow::Result<State<'a>> {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            // UPDATED
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
+            backends: wgpu::Backends::BROWSER_WEBGPU,
             ..Default::default()
         });
 
@@ -251,14 +271,10 @@ impl<'a> State<'a> {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
+                    // UPDATED!
                     required_features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
+                    // UPDATED!
+                    required_limits: wgpu::Limits::downlevel_defaults(),
                     memory_hints: Default::default(),
                 },
                 None, // Trace path
@@ -283,7 +299,8 @@ impl<'a> State<'a> {
             height: size.height,
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
+            // NEW!
+            view_formats: vec![surface_format.add_srgb_suffix()],
             desired_maximum_frame_latency: 2,
         };
 
@@ -440,6 +457,57 @@ impl<'a> State<'a> {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
+        // NEW!
+        let hdr = hdr::HdrPipeline::new(&device, &config);
+
+        let hdr_loader = resources::HdrLoader::new(&device);
+        let sky_bytes = resources::load_binary("pure-sky.hdr").await?;
+        let sky_texture = hdr_loader.from_equirectangular_bytes(
+            &device,
+            &queue,
+            &sky_bytes,
+            1080,
+            Some("Sky Texture"),
+        )?;
+
+        let environment_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("environment_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::Cube,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let environment_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("environment_bind_group"),
+            layout: &environment_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&sky_texture.view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(sky_texture.sampler()),
+                },
+            ],
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -447,6 +515,7 @@ impl<'a> State<'a> {
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
                     &light_bind_group_layout,
+                    &environment_layout, // UPDATED!
                 ],
                 push_constant_ranges: &[],
             });
@@ -459,9 +528,10 @@ impl<'a> State<'a> {
             create_render_pipeline(
                 &device,
                 &render_pipeline_layout,
-                config.format,
+                hdr.format(),
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc(), InstanceRaw::desc()],
+                wgpu::PrimitiveTopology::TriangleList,
                 shader,
             )
         };
@@ -479,9 +549,29 @@ impl<'a> State<'a> {
             create_render_pipeline(
                 &device,
                 &layout,
-                config.format,
+                hdr.format(),
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[model::ModelVertex::desc()],
+                wgpu::PrimitiveTopology::TriangleList,
+                shader,
+            )
+        };
+
+        // NEW!
+        let sky_pipeline = {
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Sky Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout, &environment_layout],
+                push_constant_ranges: &[],
+            });
+            let shader = wgpu::include_wgsl!("sky.wgsl");
+            create_render_pipeline(
+                &device,
+                &layout,
+                hdr.format(),
+                Some(texture::Texture::DEPTH_FORMAT),
+                &[],
+                wgpu::PrimitiveTopology::TriangleList,
                 shader,
             )
         };
@@ -516,7 +606,10 @@ impl<'a> State<'a> {
             )
         };
 
-        Self {
+        // #[cfg(feature = "debug")]
+        // let debug = debug::Debug::new(&device, &camera_bind_group_layout, surface_format);
+
+        Ok(Self {
             window,
             surface,
             device,
@@ -540,9 +633,14 @@ impl<'a> State<'a> {
             light_render_pipeline,
             #[allow(dead_code)]
             debug_material,
-            // NEW!
             mouse_pressed: false,
-        }
+            // NEW!
+            hdr,
+            environment_bind_group,
+            sky_pipeline,
+            // #[cfg(feature = "debug")]
+            // debug,
+        })
     }
 
     pub fn window(&self) -> &Window {
@@ -550,8 +648,11 @@ impl<'a> State<'a> {
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        // UPDATED!
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);
+            self.hdr
+                .resize(&self.device, new_size.width, new_size.height);
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
@@ -561,7 +662,6 @@ impl<'a> State<'a> {
         }
     }
 
-    // UPDATED!
     fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
@@ -590,7 +690,6 @@ impl<'a> State<'a> {
     }
 
     fn update(&mut self, dt: std::time::Duration) {
-        // UPDATED!
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.projection);
@@ -616,9 +715,10 @@ impl<'a> State<'a> {
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(self.config.format.add_srgb_suffix()),
+            ..Default::default()
+        });
 
         let mut encoder = self
             .device
@@ -630,7 +730,7 @@ impl<'a> State<'a> {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: self.hdr.view(), // UPDATED!
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -668,8 +768,38 @@ impl<'a> State<'a> {
                 0..self.instances.len() as u32,
                 &self.camera_bind_group,
                 &self.light_bind_group,
+                &self.environment_bind_group,
             );
+
+            render_pass.set_pipeline(&self.sky_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.environment_bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
         }
+
+        // NEW!
+        // Apply tonemapping
+        self.hdr.process(&mut encoder, &view);
+
+        #[cfg(feature = "debug")]
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Debug"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+            self.debug.draw_axis(&mut pass, &self.camera_bind_group);
+        }
+
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
 
@@ -714,11 +844,10 @@ pub async fn run() {
             .expect("Couldn't append canvas to document body.");
     }
 
-    let mut state = State::new(&window).await; // NEW!
+    let mut state = State::new(&window).await.unwrap();
     let mut last_render_time = instant::Instant::now();
     event_loop.run(move |event, control_flow| {
         match event {
-            // NEW!
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion{ delta, },
                 .. // We're not using device_id currently
