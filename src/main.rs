@@ -1,4 +1,4 @@
-// real magic happens in lib.rs and model.rs
+// real magic happens in all the other files
 
 use tutorial9_models::run;
 
