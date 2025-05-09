@@ -1,8 +1,6 @@
 [package]
-name = "tutorial9-models"
-version = "0.1.0"
-authors = ["Ben Hansen <https://github.com/sotrh>"]
-edition = "2018"
+name = "wgpu-test"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

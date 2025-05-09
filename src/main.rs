@@ -1,6 +1,6 @@
 // real magic happens in all the other files
 
-use tutorial9_models::run;
+use wgpu_test::run;
 
 fn main() {
     pollster::block_on(run());
