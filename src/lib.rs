@@ -212,7 +212,7 @@ fn create_render_pipeline(
             compilation_options: Default::default(),
         }),
         primitive: wgpu::PrimitiveState {
-            topology, // NEW!
+            topology,
             strip_index_format: None,
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: Some(wgpu::Face::Back),
@@ -457,7 +457,6 @@ impl<'a> State<'a> {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        // NEW!
         let hdr = hdr::HdrPipeline::new(&device, &config);
 
         let hdr_loader = resources::HdrLoader::new(&device);
@@ -634,7 +633,6 @@ impl<'a> State<'a> {
             #[allow(dead_code)]
             debug_material,
             mouse_pressed: false,
-            // NEW!
             hdr,
             environment_bind_group,
             sky_pipeline,
