@@ -1,7 +1,7 @@
 # Blender 4.3.2
 # www.blender.org
 mtllib tree.mtl
-o Cube
+o Tree
 v -0.000000 0.000000 -0.520330
 v -0.367929 0.000000 -0.367929
 v -0.520330 0.000000 -0.000000
