@@ -271,13 +271,11 @@ impl<'a> State<'a> {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    // UPDATED!
                     required_features: wgpu::Features::empty(),
-                    // UPDATED!
                     required_limits: wgpu::Limits::downlevel_defaults(),
                     memory_hints: Default::default(),
+                    trace: wgpu::Trace::Off,
                 },
-                None, // Trace path
             )
             .await
             .unwrap();
