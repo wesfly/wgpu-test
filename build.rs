@@ -4,15 +4,22 @@ use fs_extra::dir::CopyOptions;
 use std::env;
 
 fn main() -> Result<()> {
-    // This tells Cargo to rerun this script if something in /res/ changes.
-    println!("cargo:rerun-if-changed=res/*");
+    println!("Running build.rs script...");
+    if let Err(e) = run() {
+        eprintln!("Error in build.rs: {:?}", e);
+    }
+    Ok(())
+}
 
+fn run() -> Result<()> {
+    println!("cargo:rerun-if-changed=res/*");
     let out_dir = env::var("OUT_DIR")?;
+    println!("{}", out_dir);
     let mut copy_options = CopyOptions::new();
     copy_options.overwrite = true;
     let mut paths_to_copy = Vec::new();
     paths_to_copy.push("res/");
     copy_items(&paths_to_copy, out_dir, &copy_options)?;
-
+    // println!("{}", paths_to_copy);
     Ok(())
 }
