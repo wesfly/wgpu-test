@@ -46,7 +46,6 @@ impl CameraUniform {
         }
     }
 
-    // UPDATED!
     fn update_view_proj(&mut self, camera: &camera::Camera, projection: &camera::Projection) {
         self.view_position = camera.position.to_homogeneous().into();
         let proj = projection.calc_matrix();
@@ -554,7 +553,6 @@ impl<'a> State<'a> {
             )
         };
 
-        // NEW!
         let sky_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Sky Pipeline Layout"),
@@ -634,8 +632,8 @@ impl<'a> State<'a> {
             hdr,
             environment_bind_group,
             sky_pipeline,
-            // #[cfg(feature = "debug")]
-            // debug,
+            #[cfg(feature = "debug")]
+            debug,
         })
     }
 
@@ -644,7 +642,6 @@ impl<'a> State<'a> {
     }
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        // UPDATED!
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);
             self.hdr
@@ -773,7 +770,6 @@ impl<'a> State<'a> {
             render_pass.draw(0..3, 0..1);
         }
 
-        // NEW!
         // Apply tonemapping
         self.hdr.process(&mut encoder, &view);
 
@@ -850,7 +846,6 @@ pub async fn run() {
             } => if state.mouse_pressed {
                 state.camera_controller.process_mouse(delta.0, delta.1)
             }
-            // UPDATED!
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -870,7 +865,6 @@ pub async fn run() {
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
                     }
-                    // UPDATED!
                     WindowEvent::RedrawRequested => {
                         state.window().request_redraw();
                         let now = instant::Instant::now();
