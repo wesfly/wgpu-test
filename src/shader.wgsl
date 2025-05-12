@@ -1,4 +1,4 @@
-// Vertex shader
+// Main shader
 
 struct Camera {
     view_pos: vec4<f32>,
@@ -62,7 +62,6 @@ fn vs_main(
         instance.normal_matrix_2,
     );
 
-    // UPDATED!
     let world_position = model_matrix * vec4<f32>(model.position, 1.0);
 
     var out: VertexOutput;
@@ -75,8 +74,6 @@ fn vs_main(
     out.world_view_position = camera.view_pos.xyz;
     return out;
 }
-
-// Fragment shader
 
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
