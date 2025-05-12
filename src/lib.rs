@@ -248,7 +248,6 @@ impl<'a> State<'a> {
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            // UPDATED
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]
@@ -341,7 +340,7 @@ impl<'a> State<'a> {
             });
 
         let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-        let projection =
+        let projection = // FOV
             camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(4.0, 0.4);
 
@@ -364,14 +363,7 @@ impl<'a> State<'a> {
 
                     let position = cgmath::Vector3 { x, y: 0.0, z };
 
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
+                    let rotation = cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(5.0));
 
                     Instance { position, rotation }
                 })
@@ -511,7 +503,7 @@ impl<'a> State<'a> {
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
                     &light_bind_group_layout,
-                    &environment_layout, // UPDATED!
+                    &environment_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -723,7 +715,7 @@ impl<'a> State<'a> {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: self.hdr.view(), // UPDATED!
+                    view: self.hdr.view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
