@@ -47,5 +47,5 @@ fs_extra = "1.2"
 glob = "0.3"
 
 [[bin]]
-name = "tutorial9-models"
+name = "wgpu-test"
 path = "src/main.rs"
