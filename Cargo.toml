@@ -5,6 +5,7 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# cargo run -F debug
 [features]
 debug = []
 
