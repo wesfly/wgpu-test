@@ -678,10 +678,10 @@ impl<'a> State<'a> {
 
     fn update(&mut self) {
         let now = std::time::Instant::now();
-        let dt = now - self.last_frame_time;
+        let delta = now - self.last_frame_time;
         self.last_frame_time = now;
 
-        self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_controller.update_camera(&mut self.camera, delta);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.projection);
         self.queue.write_buffer(
@@ -694,7 +694,7 @@ impl<'a> State<'a> {
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
             (0.0, 1.0, 0.0).into(),
-            cgmath::Deg(PI * dt.as_secs_f32()),
+            cgmath::Deg(PI * delta.as_secs_f32()),
         ) * old_position)
             .into();
         self.queue.write_buffer(
