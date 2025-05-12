@@ -178,6 +178,7 @@ struct State<'a> {
     sky_pipeline: wgpu::RenderPipeline,
     #[cfg(feature = "debug")]
     debug: debug::Debug,
+    last_frame_time: std::time::Instant,
 }
 
 fn create_render_pipeline(
@@ -626,6 +627,7 @@ impl<'a> State<'a> {
             sky_pipeline,
             #[cfg(feature = "debug")]
             debug,
+            last_frame_time: std::time::Instant::now(),
         })
     }
 
@@ -674,7 +676,11 @@ impl<'a> State<'a> {
         }
     }
 
-    fn update(&mut self, dt: std::time::Duration) {
+    fn update(&mut self) {
+        let now = std::time::Instant::now();
+        let dt = now - self.last_frame_time;
+        self.last_frame_time = now;
+
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.projection);
@@ -829,7 +835,6 @@ pub async fn run() {
     }
 
     let mut state = State::new(&window).await.unwrap();
-    let mut last_render_time = instant::Instant::now();
     event_loop.run(move |event, control_flow| {
         match event {
             Event::DeviceEvent {
@@ -859,10 +864,7 @@ pub async fn run() {
                     }
                     WindowEvent::RedrawRequested => {
                         state.window().request_redraw();
-                        let now = instant::Instant::now();
-                        let dt = now - last_render_time;
-                        last_render_time = now;
-                        state.update(dt);
+                        state.update();
                         match state.render() {
                             Ok(_) => {}
                             // Reconfigure the surface if it's lost or outdated
