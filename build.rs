@@ -20,6 +20,5 @@ fn run() -> Result<()> {
     let mut paths_to_copy = Vec::new();
     paths_to_copy.push("res/");
     copy_items(&paths_to_copy, out_dir, &copy_options)?;
-    // println!("{}", paths_to_copy);
     Ok(())
 }
