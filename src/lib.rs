@@ -410,7 +410,7 @@ impl<'a> State<'a> {
                 .unwrap();
 
         let light_model =
-            resources::load_model("tree.obj", &device, &queue, &texture_bind_group_layout)
+            resources::load_model("light.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
 
