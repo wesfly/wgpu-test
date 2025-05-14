@@ -362,9 +362,11 @@ impl<'a> State<'a> {
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    // Create a random number generator
                     let mut rng = rand::rng();
 
-                    let mut nums: Vec<f32> = std::iter::successors(Some(1.0), |&prev| {
+                    // Generate random position grid
+                    let nums: Vec<f32> = std::iter::successors(Some(1.0), |&prev| {
                         if prev > 0.1 {
                             Some(prev - 0.1)
                         } else {
@@ -372,11 +374,13 @@ impl<'a> State<'a> {
                         }
                     })
                     .collect();
-                    nums.shuffle(&mut rng);
 
+                    // Calculate the x and z positions for the instance, adding a random offset
+                    // from the shuffled numbers to create variation in placement.
                     let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0 + nums.choose(&mut rng).unwrap_or(&0.0));
                     let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0 + nums.choose(&mut rng).unwrap_or(&0.0));
 
+                    // Define the position of the instance in 3D space
                     let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(5.0));
