@@ -21,6 +21,7 @@ tobj = { version = "3.2", default-features = false, features = ["async"] }
 wgpu = { version = "25.0.0" }
 winit = { version = "0.29", features = ["rwh_05"] }
 instant = "0.1"
+rand = "0.9.1"
 
 # could be updated, but no fix found for hdr image decoder read_image_transform
 [dependencies.image]

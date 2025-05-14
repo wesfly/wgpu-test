@@ -1,5 +1,6 @@
 use std::{f32::consts::PI, iter};
 
+use rand::prelude::*;
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::{
@@ -361,8 +362,20 @@ impl<'a> State<'a> {
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let mut rng = rand::rng();
+
+                    let mut nums: Vec<f32> = std::iter::successors(Some(1.0), |&prev| {
+                        if prev > 0.1 {
+                            Some(prev - 0.1)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                    nums.shuffle(&mut rng);
+
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0 + nums.choose(&mut rng).unwrap_or(&0.0));
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0 + nums.choose(&mut rng).unwrap_or(&0.0));
 
                     let position = cgmath::Vector3 { x, y: 0.0, z };
 
