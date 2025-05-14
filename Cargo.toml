@@ -22,8 +22,9 @@ wgpu = { version = "25.0.0" }
 winit = { version = "0.29", features = ["rwh_05"] }
 instant = "0.1"
 
+# could be updated, but no fix found for hdr image decoder read_image_transform
 [dependencies.image]
-version = "0.24"
+version = "0.24.9"
 default-features = false
 features = ["png", "jpeg", "hdr"]
 
@@ -31,7 +32,7 @@ features = ["png", "jpeg", "hdr"]
 reqwest = { version = "0.12.15" }
 console_error_panic_hook = "0.1"
 console_log = "1.0"
-wgpu = { version = "24.0", features = ["webgl"] }
+wgpu = { version = "25.0", features = ["webgl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
