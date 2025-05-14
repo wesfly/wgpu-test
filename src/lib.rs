@@ -601,8 +601,8 @@ impl<'a> State<'a> {
             )
         };
 
-        // #[cfg(feature = "debug")]
-        // let debug = debug::Debug::new(&device, &camera_bind_group_layout, surface_format);
+        #[cfg(feature = "debug")]
+        let debug = debug::Debug::new(&device, &camera_bind_group_layout, surface_format);
 
         Ok(Self {
             window,
