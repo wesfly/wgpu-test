@@ -154,6 +154,7 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     obj_model: model::Model,
+    light_model: model::Model,
     camera: camera::Camera,
     projection: camera::Projection,
     camera_controller: camera::CameraController,
@@ -303,6 +304,7 @@ impl<'a> State<'a> {
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
+                    // base texture
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
@@ -403,6 +405,11 @@ impl<'a> State<'a> {
         });
 
         let obj_model =
+            resources::load_model("tree.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
+        let light_model =
             resources::load_model("tree.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
@@ -605,6 +612,7 @@ impl<'a> State<'a> {
             config,
             render_pipeline,
             obj_model,
+            light_model,
             camera,
             projection,
             camera_controller,
@@ -748,7 +756,7 @@ impl<'a> State<'a> {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
-                &self.obj_model,
+                &self.light_model,
                 &self.camera_bind_group,
                 &self.light_bind_group,
             );
