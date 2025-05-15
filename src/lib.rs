@@ -422,7 +422,7 @@ impl<'a> State<'a> {
         });
 
         let obj_model =
-            resources::load_model("tree.obj", &device, &queue, &texture_bind_group_layout)
+            resources::load_model("object.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
 

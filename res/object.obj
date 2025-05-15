@@ -1,6 +1,6 @@
 # Blender 4.4.3
 # www.blender.org
-mtllib tree.mtl
+mtllib object.mtl
 o Cube
 v -0.188817 0.177775 -0.393827
 v -0.238216 -0.217652 -0.460289
