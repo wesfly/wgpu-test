@@ -24,7 +24,7 @@ mod debug;
 
 use model::{DrawLight, DrawModel, Vertex};
 
-const NUM_INSTANCES_PER_ROW: u32 = 512;
+const NUM_INSTANCES_PER_ROW: u32 = 32;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -228,7 +228,7 @@ fn create_render_pipeline(
         depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
             format,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::LessEqual, // UDPATED!
+            depth_compare: wgpu::CompareFunction::LessEqual,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
@@ -650,9 +650,10 @@ impl<'a> State<'a> {
             hdr,
             environment_bind_group,
             sky_pipeline,
+            last_frame_time: std::time::Instant::now(),
+
             #[cfg(feature = "debug")]
             debug,
-            last_frame_time: std::time::Instant::now(),
         })
     }
 

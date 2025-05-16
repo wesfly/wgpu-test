@@ -145,7 +145,10 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
-        let dt = dt.as_secs_f32();
+        const MIN_DT: f32 = 1.0 / 120.0; // Minimum delta time (120 FPS)
+        const MAX_DT: f32 = 1.0 / 10.0;  // Maximum delta time (30 FPS)
+        let mut dt = dt.as_secs_f32();
+        dt = dt.clamp(MIN_DT, MAX_DT);
 
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = camera.yaw.0.sin_cos();
