@@ -342,6 +342,23 @@ impl State {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    // roughness texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
@@ -594,6 +611,7 @@ impl State {
         let debug_material = {
             let diffuse_bytes = include_bytes!("../res/tree-diffuse.png");
             let normal_bytes = include_bytes!("../res/tree-normal.png");
+            let roughness_bytes = include_bytes!("../res/tree-diffuse.png");
 
             let diffuse_texture = texture::Texture::from_bytes(
                 &device,
@@ -601,22 +619,28 @@ impl State {
                 diffuse_bytes,
                 "res/alt-diffuse.png",
                 false,
-            )
-            .unwrap();
+            ).unwrap();
             let normal_texture = texture::Texture::from_bytes(
                 &device,
                 &queue,
                 normal_bytes,
                 "res/alt-normal.png",
                 true,
-            )
-            .unwrap();
+            ).unwrap();
+            let shininess_texture = texture::Texture::from_bytes(
+                &device,
+                &queue,
+                roughness_bytes,
+                "res/alt-roughness",
+                false
+            ).unwrap();
 
             model::Material::new(
                 &device,
                 "alt-material",
                 diffuse_texture,
                 normal_texture,
+                shininess_texture,
                 &texture_bind_group_layout,
             )
         };

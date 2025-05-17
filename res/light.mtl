@@ -13,3 +13,4 @@ illum 2
 
 map_Kd tree-normal.png
 map_Bump tree-normal.png
+map_Ns tree-diffuse.png

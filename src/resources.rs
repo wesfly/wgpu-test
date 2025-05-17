@@ -106,11 +106,18 @@ pub async fn load_model(
             return Err(anyhow::anyhow!("Missing normal texture for material {}", m.name));
         };
 
+        let shininess_texture = if let Some(ref tex) = m.shininess_texture {
+            load_texture(tex, false, device, queue).await?
+        } else {
+            return Err(anyhow::anyhow!("Missing shininess texture for material {}", m.name));
+        };
+
         materials.push(model::Material::new(
             device,
             &m.name,
             diffuse_texture,
             normal_texture,
+            shininess_texture,
             layout,
         ));
     }
