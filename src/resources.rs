@@ -77,6 +77,7 @@ pub async fn load_model(
     let obj_cursor = Cursor::new(obj_text);
     let mut obj_reader = BufReader::new(obj_cursor);
 
+    #[allow(deprecated)] // TODO!
     let (models, obj_materials) = tobj::load_obj_buf_async(
         &mut obj_reader,
         &tobj::LoadOptions {
@@ -93,8 +94,17 @@ pub async fn load_model(
 
     let mut materials = Vec::new();
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, false, device, queue).await?;
-        let normal_texture = load_texture(&m.normal_texture, true, device, queue).await?;
+        let diffuse_texture = if let Some(ref tex) = m.diffuse_texture {
+            load_texture(tex, false, device, queue).await?
+        } else {
+            return Err(anyhow::anyhow!("Missing diffuse texture for material {}", m.name));
+        };
+
+        let normal_texture = if let Some(ref tex) = m.normal_texture {
+            load_texture(tex, true, device, queue).await?
+        } else {
+            return Err(anyhow::anyhow!("Missing normal texture for material {}", m.name));
+        };
 
         materials.push(model::Material::new(
             device,
