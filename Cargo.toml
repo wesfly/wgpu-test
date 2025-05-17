@@ -1,8 +1,7 @@
 [package]
-name = "tutorial2-surface"
+name = "wgpu-test"
 version = "0.1.0"
-authors = ["Ben Hansen <https://github.com/sotrh>"]
-edition = "2018"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -12,8 +11,8 @@ cfg-if = "1"
 winit = { version = "0.29", features = ["rwh_05"] }
 env_logger = "0.10"
 log = "0.4"
-wgpu = "24.0"
-pollster = "0.3"
+wgpu = "25.0"
+pollster = "0.4.0"
 bytemuck = { version = "1.16", features = ["derive"] }
 
 # [dependencies.image]
@@ -23,13 +22,13 @@ bytemuck = { version = "1.16", features = ["derive"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = "1.0"
-wgpu = { version = "24.0", features = ["webgl"] }
+wgpu = { version = "25.0", features = ["webgl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Document", "Window", "Element"] }
 
 [[bin]]
-name = "tutorial2-surface"
+name = "wgpu-test"
 path = "src/main.rs"
 
 # [[bin]]

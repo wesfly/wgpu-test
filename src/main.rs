@@ -1,6 +1,6 @@
 // real magic happens in lib.rs and model.rs
 
-use tutorial2_surface::run;
+use wgpu_test::run;
 
 fn main() {
     pollster::block_on(run());
