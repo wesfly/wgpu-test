@@ -77,12 +77,16 @@ fn vs_main(
 
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
-@group(0)@binding(1)
+@group(0) @binding(1)
 var s_diffuse: sampler;
-@group(0)@binding(2)
+@group(0) @binding(2)
 var t_normal: texture_2d<f32>;
 @group(0) @binding(3)
 var s_normal: sampler;
+@group(0) @binding(4)
+var t_shininess: texture_2d<f32>;
+@group(0) @binding(5)
+var s_shininess: sampler;
 
 @group(3)
 @binding(0)
@@ -95,6 +99,8 @@ var env_sampler: sampler;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     let object_normal: vec4<f32> = textureSample(t_normal, s_normal, in.tex_coords);
+    let shininess_sample: vec4<f32> = textureSample(t_shininess, s_shininess, in.tex_coords);
+    let shininess = shininess_sample.r;
 
     // Adjust the tangent and bitangent using the Gramm-Schmidt process
     // This makes sure that they are perpedicular to each other and the
@@ -119,13 +125,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let diffuse_strength = max(dot(world_normal, light_dir), 0.0);
     let diffuse_color = light.color * diffuse_strength;
 
-    let specular_strength = pow(max(dot(world_normal, half_dir), 0.0), 32.0);
+    let specular_strength = pow(max(dot(world_normal, half_dir), 0.0), shininess * 255.0);
     let specular_color = specular_strength * light.color;
 
     // Calculate reflections
     let world_reflect = reflect(-view_dir, world_normal);
     let reflection = textureSample(env_map, env_sampler, world_reflect).rgb;
-    let shininess = 0.2;
 
     let result = (diffuse_color + specular_color) * object_color.xyz + reflection * shininess;
 
