@@ -611,7 +611,7 @@ impl State {
         let debug_material = {
             let diffuse_bytes = include_bytes!("../res/tree-diffuse.png");
             let normal_bytes = include_bytes!("../res/tree-normal.png");
-            let roughness_bytes = include_bytes!("../res/tree-diffuse.png");
+            let roughness_bytes = include_bytes!("../res/tree-shininess.png");
 
             let diffuse_texture = texture::Texture::from_bytes(
                 &device,
@@ -631,7 +631,7 @@ impl State {
                 &device,
                 &queue,
                 roughness_bytes,
-                "res/alt-roughness",
+                "res/alt-shininess",
                 false
             ).unwrap();
 
