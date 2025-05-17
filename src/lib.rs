@@ -24,7 +24,7 @@ mod debug;
 
 use model::{DrawLight, DrawModel, Vertex};
 
-const NUM_INSTANCES_PER_ROW: u32 = 32;
+const NUM_INSTANCES_PER_ROW: u32 = 1;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -174,13 +174,13 @@ struct State<'a> {
     #[allow(dead_code)]
     debug_material: model::Material,
     mouse_pressed: bool,
-
     hdr: hdr::HdrPipeline,
     environment_bind_group: wgpu::BindGroup,
     sky_pipeline: wgpu::RenderPipeline,
+    last_frame_time: std::time::Instant,
+
     #[cfg(feature = "debug")]
     debug: debug::Debug,
-    last_frame_time: std::time::Instant,
 }
 
 fn create_render_pipeline(
@@ -345,7 +345,7 @@ impl<'a> State<'a> {
 
         let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection = // FOV
-            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 200.0);
         let camera_controller = camera::CameraController::new(4.0, 0.4);
 
         let mut camera_uniform = CameraUniform::new();
