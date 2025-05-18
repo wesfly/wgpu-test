@@ -366,7 +366,7 @@ impl State {
         let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection = // FOV
             camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 200.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.4);
+        let camera_controller = camera::CameraController::new(10.0, 0.01);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &projection);
@@ -385,7 +385,7 @@ impl State {
                     // Create a random number generator
                     let mut rng = rand::rng();
 
-                    // Generate random position grid
+                    // Generate random positions
                     let nums: Vec<f32> = std::iter::successors(Some(1.0), |&prev| {
                         if prev > 0.1 {
                             Some(prev - 0.1)
@@ -779,9 +779,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 1.0,     // Warning colour if not covered
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -851,7 +851,6 @@ impl State {
     }
 }
 
-// Application handler for winit event loop
 struct App {
     state: Option<State>,
 }
@@ -922,10 +921,9 @@ impl ApplicationHandler for App {
                             let dy = position.y - last_pos.y;
                             state.camera_controller.process_mouse(dx, dy);
                         }
-                        state.last_cursor_position = Some(position);
-                    } else {
-                        state.last_cursor_position = Some(position);
                     }
+
+                    state.last_cursor_position = Some(position);
                 }
                 WindowEvent::MouseInput { state: ElementState::Released, .. } => {
                     state.last_cursor_position = None;
@@ -978,7 +976,6 @@ pub async fn run() {
     let event_loop = EventLoop::new().unwrap();
     let mut app = App::new();
 
-    // Run the application - different approaches for native vs web
     #[cfg(not(target_arch="wasm32"))]
     event_loop.run_app(&mut app).unwrap();
 
